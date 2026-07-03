@@ -83,3 +83,10 @@ Full trend analysis in [`notebooks/04_trend_analysis.ipynb`](notebooks/04_trend_
 - Window spans ~6 days (Nov 9–14, 2019), ~2x higher weekday volume; too short
   for weekly-seasonality claims.
 ![CTR by hour of day with 95% CI](reports/figures/trend analysis/temporal_by_hour_ci.png)
+
+## Dashboard
+
+Interactive Streamlit analytics dashboard (overview KPIs, concentration,
+categories, temporal trends):
+
+![MIND analytics dashboard](reports/figures/dashboard.png)
