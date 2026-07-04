@@ -90,3 +90,29 @@ Interactive Streamlit analytics dashboard (overview KPIs, concentration,
 categories, temporal trends):
 
 ![MIND analytics dashboard](reports/figures/dashboard.png)
+
+## Baseline Recommenders — Benchmark
+
+Baselines evaluated on the MIND-small dev set by ranking each impression's
+candidate list (nDCG@10 and MRR averaged over impressions; a random scorer is
+included as a floor). Evaluation harness in [`src/eval.py`](src/eval.py),
+scoring functions in [`src/recommenders.py`](src/recommenders.py).
+
+| Model | nDCG@10 | MRR |
+|-------|:-------:|:---:|
+| Random (floor) | 0.287 | 0.247 |
+| Popularity | 0.310 | 0.267 |
+| **Content-based** | **0.359** | **0.321** |
+| Collaborative filtering (item–item) | 0.303 | 0.262 |
+
+**Takeaways**
+- **Content-based ranking wins decisively.** Matching candidates to the
+  categories/subcategories in a user's click history beats popularity by
+  +0.050 nDCG (paired t-test, p ≈ 0) — roughly double popularity's edge over
+  random. Topic preference alone is a strong personalization signal.
+- **Collaborative filtering underperforms popularity**, consistent with news
+  item cold-start and sparsity: dev candidates are often fresh articles with
+  little or no training co-click signal, so item–item similarity is unreliable.
+- **Implication:** content signal drives news recommendation. This motivates
+  Phase 4 — replacing crude category matching with semantic title/abstract
+  embeddings to capture similarity beyond exact category labels.

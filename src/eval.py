@@ -1,0 +1,61 @@
+import numpy as np
+
+def random_recommender(seed=0):
+    rng = np.random.default_rng(seed)
+    return lambda row, news_id: rng.random()
+
+def popularity_recommender(train_clicks):
+    return lambda row, news_id: train_clicks.get(news_id, 0)
+
+def content_recommender(cat_of, subcat_of, train_clicks):
+    def score(row, news_id):
+        prof = row.profile
+        if prof is None:
+            return train_clicks.get(news_id, 0)
+        c, s = cat_of.get(news_id), subcat_of.get(news_id)
+        return (prof["cats"].get(c, 0) + 2 * prof["subs"].get(s, 0)) / prof["total"]
+    return score
+
+def cf_recommender(item_vecs, iidx, train_clicks):
+    def score(row, news_id):
+        j = iidx.get(news_id)
+        if j is None or len(row.hist_idx) == 0:
+            return train_clicks.get(news_id, 0)
+        return float(item_vecs[row.hist_idx].dot(item_vecs[j].T).sum())
+    return score
+
+def dcg(rels):
+    rels = np.asarray(rels, dtype=float)
+    return np.sum(rels / np.log2(np.arange(2, len(rels) + 2)))
+
+def ndcg_at_k(labels, k):
+    ideal_dcg = dcg(sorted(labels, reverse=True)[:k])
+    return dcg(labels[:k]) / ideal_dcg if ideal_dcg > 0 else 0.0
+
+def mrr(labels):
+    for i, l in enumerate(labels, 1):
+        if l == 1:
+            return 1 / i
+    return 0.0
+
+def evaluate(score_fn, dev, k=10):
+    ndcgs, mrrs = [], []
+    for row in dev.itertuples(index=False):
+        parsed = row.parsed
+        if sum(l for _, l in parsed) == 0:
+            continue
+        ranked = sorted(parsed, key=lambda nl: score_fn(row, nl[0]), reverse=True)
+        labels = [l for _, l in ranked]
+        ndcgs.append(ndcg_at_k(labels, k))
+        mrrs.append(mrr(labels))
+    return {f"nDCG@{k}": float(np.mean(ndcgs)), "MRR": float(np.mean(mrrs))}
+
+def per_impression_ndcg(score_fn, dev, k=10):
+    out = []
+    for row in dev.itertuples(index=False):
+        parsed = row.parsed
+        if sum(l for _, l in parsed) == 0:
+            continue
+        ranked = sorted(parsed, key=lambda nl: score_fn(row, nl[0]), reverse=True)
+        out.append(ndcg_at_k([l for _, l in ranked], k))
+    return np.array(out)
