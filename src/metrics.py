@@ -22,3 +22,13 @@ def gini_diff_ci(df, col_a, col_b, n_boot=2000):
     diffs = [gini(a[idx]) - gini(b[idx])
              for idx in (np.random.randint(0, n, n) for _ in range(n_boot))]
     return np.mean(diffs), np.percentile(diffs, [2.5, 97.5])
+
+def intra_list_diversity(news_id_list, emb, row_of):
+    import numpy as np
+    idx = [row_of[n] for n in news_id_list if n in row_of]
+    if len(idx) < 2:
+        return np.nan
+    V = emb[idx]
+    S = V @ V.T
+    n = len(idx)
+    return 1 - (S.sum() - n) / (n * (n - 1))
