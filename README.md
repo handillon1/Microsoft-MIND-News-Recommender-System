@@ -106,7 +106,7 @@ scoring functions in [`src/recommenders.py`](src/recommenders.py).
 | Collaborative filtering (item–item) | 0.303 | 0.262 |
 
 **Takeaways**
-- **Content-based ranking wins decisively.** Matching candidates to the
+- **Content based ranking wins** Matching candidates to the
   categories/subcategories in a user's click history beats popularity by
   +0.050 nDCG (paired t-test, p ≈ 0) — roughly double popularity's edge over
   random. Topic preference alone is a strong personalization signal.
@@ -116,3 +116,50 @@ scoring functions in [`src/recommenders.py`](src/recommenders.py).
 - **Implication:** content signal drives news recommendation. This motivates
   Phase 4 — replacing crude category matching with semantic title/abstract
   embeddings to capture similarity beyond exact category labels.
+
+## Semantic Layer
+
+Article embeddings generated with Sentence-Transformers (`all-MiniLM-L6-v2`,
+384-d) over each article's title + abstract (~65k articles). Artifacts in
+`models/`; metric in [`src/metrics.py`](src/metrics.py).
+
+- **Validation:** nearest-neighbour retrieval is coherent — a St. Louis
+  shooting story returns other St. Louis shootings first, then related crime
+  stories elsewhere, capturing both event type and location from text alone.
+- **Topic structure beyond categories:** KMeans (k=50) recovers themes finer
+  than MIND's 18 categories — e.g. it separates *individual* sports (golf,
+  tennis, MMA) from *team* sports/roster news, and splits the broad `news`
+  category into Ukraine politics, crime, and disasters.
+- **Redundancy:** ~XX% of articles have a near-duplicate at cosine > 0.90,
+  including exact duplicates published under different `news_id`s. Threshold
+  methods over-flag formulaic headline templates (e.g. race recaps differing
+  only by venue), so duplicates are treated as a signal, not ground truth.
+- **Diversity metric:** intra-list diversity = 1 − mean pairwise cosine
+  similarity. Validated by construction:
+  redundant list (one cluster) **0.756** < popularity list **0.861** 
+  varied list (ten clusters) **0.955**. Values compress into a high band, as
+  expected for text embeddings — differences are interpreted relatively.
+
+## Optimization Objective
+
+The system does not maximize a single metric. It maximizes engagement **subject
+to constraints** that protect the long-term experience:
+
+**Maximize:** predicted engagement (click-through rate)
+
+**Subject to:**
+- **Diversity** — intra-list diversity stays above a threshold
+- **Freshness** — recommended articles stay recent (first-appearance proxy)
+- **Fatigue** — per-user repeated topic exposure stays below a limit
+- **Category fairness** — no systematic over/under-exposure of topics
+
+**Operationalized** as a re-ranking score applied to each candidate list:
+
+FinalScore = w₁·P(engage) + w₂·freshness + w₃·diversity_gain
+             − w₄·fatigue_penalty − w₅·repetition_penalty
+
+**The decision:** the diversity/engagement balance is exposed as a single
+tunable weight (λ). The project measures the resulting tradeoff curve and
+selects an operating point that maximizes diversity within a bounded,
+pre-specified CTR-loss budget — i.e. it estimates the exchange rate between
+engagement and diversity and recommends where it stops being worth paying.
