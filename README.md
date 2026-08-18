@@ -163,3 +163,21 @@ tunable weight (λ). The project measures the resulting tradeoff curve and
 selects an operating point that maximizes diversity within a bounded,
 pre-specified CTR-loss budget — i.e. it estimates the exchange rate between
 engagement and diversity and recommends where it stops being worth paying.
+
+## Experimentation
+
+Simulated A/B test (counterfactual offline evaluation on the MIND dev set;
+labels fixed, so this measures ranking quality by arm, not live behavior).
+
+- **Design:** users randomized to control (λ=0, pure engagement) vs. treatment
+  (λ=0.5, diversity-constrained re-ranker); ~8k users. Randomized by user.
+- **Hypothesis:** treatment raises intra-list diversity while keeping
+  engagement within a ~1% guardrail.
+- **Results (per-user means, Welch t-test):**
+  - Diversity: **+0.018 (0.918 → 0.935), p ≈ 1e-84** — significant.
+  - Engagement (nDCG@10): **−0.0008, p = 0.90** — no significant change; guardrail held.
+- **Decision: ship λ=0.5** — meaningfully more diverse feeds at no significant
+  engagement cost.
+- **Caveats:** offline/counterfactual (no observed live clicks); independent-
+  groups design has wide engagement CIs — a paired design would estimate the
+  small engagement cost more precisely.
