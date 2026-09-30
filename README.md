@@ -169,15 +169,67 @@ engagement and diversity and recommends where it stops being worth paying.
 Simulated A/B test (counterfactual offline evaluation on the MIND dev set;
 labels fixed, so this measures ranking quality by arm, not live behavior).
 
-- **Design:** users randomized to control (λ=0, pure engagement) vs. treatment
+- **Design:** users randomized to control (λ=0, pure engagement) vs treatment
   (λ=0.5, diversity-constrained re-ranker); ~8k users. Randomized by user.
 - **Hypothesis:** treatment raises intra-list diversity while keeping
-  engagement within a ~1% guardrail.
-- **Results (per-user means, Welch t-test):**
-  - Diversity: **+0.018 (0.918 → 0.935), p ≈ 1e-84** — significant.
-  - Engagement (nDCG@10): **−0.0008, p = 0.90** — no significant change; guardrail held.
-- **Decision: ship λ=0.5** — meaningfully more diverse feeds at no significant
-  engagement cost.
-- **Caveats:** offline/counterfactual (no observed live clicks); independent-
-  groups design has wide engagement CIs — a paired design would estimate the
-  small engagement cost more precisely.
+  engagement within a ~1% guardrail and without degrading the other constraints.
+
+### Results (per-user means, Welch t-test)
+
+| Metric | Control | Treatment | Lift | 95% CI | p |
+|---|:--:|:--:|:--:|:--:|:--:|
+| nDCG@10 | 0.363 | 0.358 | −0.0008 | (−0.0145, +0.0129) | 0.90 |
+| Intra-list diversity | 0.918 | 0.935 | **+0.0180** | (+0.0162, +0.0198) | 1e-84 |
+| Freshness | 0.485 | 0.507 | **+0.0236** | (+0.0192, +0.0280) | 2e-25 |
+| Fatigue index (lower better) | 0.482 | 0.511 | **+0.0289** | (+0.0193, +0.0385) | 4e-09 |
+| Repetition (τ=0.9) | 0.000 | 0.000 | — | — | not estimable |
+
+Population-level: category fairness (1 − Gini of exposure) fell **0.430 → 0.401**;
+the most over-exposed category (finance) went from **2.78x to 3.58x** its share
+of demand.
+
+### Interpretation
+
+**The guardrails contradict the headline metric.** Treatment produces feeds that
+are more diverse *in embedding space* and simultaneously more concentrated *by
+category*. MMR rewards semantic spread, and categories differ in internal
+dispersion — a category whose articles are far apart in embedding space (finance)
+can be over-drawn without ever lowering intra-list diversity. Optimizing a
+similarity-based diversity metric therefore does not guarantee topic balance.
+
+To make the diversity gain legible: against the validation scale from Phase 4
+(redundant list 0.756, popularity 0.861, varied 0.955), treatment closes roughly
+a fifth of the gap between control and a deliberately varied list.
+
+**Engagement: not shown to be safe, only not shown to be harmed.** The point
+estimate is well inside the 1% budget, but the interval spans ±4% of baseline
+nDCG. Demonstrating equivalence requires a TOST against a pre-specified margin
+and a paired design (rank each impression under both arms), which removes the
+between-user variance dominating this interval.
+
+**Freshness gain is partly a cold-start effect.** The freshness proxy is
+first-appearance time, so articles absent from the training window score ~1.0.
+The lift reflects the re-ranker escaping the popularity loop as much as it
+reflects recency.
+
+**Repetition is not measurable at τ=0.9 within a single candidate list** — no
+candidate pair exceeds that threshold. Near-duplication in MIND is a corpus-level
+phenomenon (Phase 4), not a within-impression one.
+
+### Decision
+
+**Do not ship λ=0.5 as specified.** It buys semantic diversity and long-tail
+exposure at no detectable engagement cost, but degrades category fairness and
+per-user topic concentration — the precise failure mode this project set out to
+prevent. Next iteration: add an explicit category-balance term to the re-ranking
+objective and re-evaluate against the same guardrail panel.
+
+### Caveats
+
+- Offline/counterfactual: no observed live clicks.
+- Independent-groups design gives wide engagement CIs; a paired design is
+  cheap here and should replace it.
+- Fatigue is measured within a single day of dev impressions, so it captures
+  within-list topic concentration rather than repeated exposure over time.
+- Five metrics tested; diversity, freshness, and fatigue all survive a
+  Bonferroni-corrected threshold.
