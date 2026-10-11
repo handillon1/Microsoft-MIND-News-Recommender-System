@@ -5,16 +5,15 @@ maximizes engagement (CTR) while balancing diversity, freshness, and
 recommendation-fatigue constraints.
 
 ## Tech stack
-Python, pandas, scikit-learn, Sentence-Transformers, PostgreSQL, MLflow,
-Streamlit / Tableau.
+Python, pandas, scikit-learn, Sentence-Transformers, PostgreSQL, Streamlit.
 
 ## Project structure
 - `data/` — raw + processed MIND data (gitignored)
 - `notebooks/` — EDA and prototyping
 - `src/` — recommenders, metrics, NLP modules
 - `sql/` — schema and queries
-- `dashboards/` — Streamlit app / Tableau workbooks
-- `reports/` — product insights write-up and figures
+- `dashboards/` — Streamlit analytics app
+- `figures/` — charts used in this README
 
 ## Problem Statement
 
@@ -22,8 +21,6 @@ Streamlit / Tableau.
     repeatedly. We aim to cultivate an audience with repeat engagement across the time frame. A recommendation system focusing solely on click through rate can ruin recommendations and create feeds focused only on suggesting the most popular articles, encouraging repetition and narrowing topics; A long term retention risk.To balance the trade off, we should quantify the trade off between the demand for an increase in immediate engagement and a diverse recommendation system by identifying the exchange rate between engagement and diversity and recommend where it stops being worth paying. A success will be consistent click through rate, lowered topic repetition and increased intra list diversity, verified with experiment and guardrails. Failures can be identified when recommendations focus solely on few popular articles, users get suggested only a narrow set of topics, and readers are exposed to similar content leads to higher fatigue/churn.
 
 ## Exploratory Data Analysis — Key Findings
-
-Full analysis in [`notebooks/03_eda.ipynb`](notebooks/03_eda.ipynb).
 
 ### Engagement is extremely concentrated across articles
 Full article analysis in [`notebooks/03_article_analysis.ipynb`](notebooks/03_article_analysis.ipynb).
@@ -36,7 +33,9 @@ Full article analysis in [`notebooks/03_article_analysis.ipynb`](notebooks/03_ar
   concentrates only modestly further (0.94 vs 0.92).
 - **Top 1% of articles capture ~51.6% of all clicks.**
 
-![Article click concentration (Lorenz curve)](reports/figures/article analysis/article_lorenz_curve.png)
+![Top 1% of articles get over half of all clicks](figures/article%20analysis/click_concentration_linkedin.png)
+
+![Article click concentration (Lorenz curve)](figures/article%20analysis/article_lorenz_curve.png)
 
 ### Topic concentration: demand outpaces supply
 Full topic analysis in [`notebooks/02_topic_analysis.ipynb`](notebooks/02_topic_analysis.ipynb).
@@ -82,14 +81,14 @@ Full trend analysis in [`notebooks/04_trend_analysis.ipynb`](notebooks/04_trend_
   low-sample hours.
 - Window spans ~6 days (Nov 9–14, 2019), ~2x higher weekday volume; too short
   for weekly-seasonality claims.
-![CTR by hour of day with 95% CI](reports/figures/trend analysis/temporal_by_hour_ci.png)
+![CTR by hour of day with 95% CI](figures/trend%20analysis/temporal_by_hour_ci.png)
 
 ## Dashboard
 
 Interactive Streamlit analytics dashboard (overview KPIs, concentration,
 categories, temporal trends):
 
-![MIND analytics dashboard](reports/figures/dashboard.png)
+![MIND analytics dashboard](figures/dashboard.png)
 
 ## Baseline Recommenders — Benchmark
 
@@ -120,7 +119,8 @@ scoring functions in [`src/recommenders.py`](src/recommenders.py).
 ## Semantic Layer
 
 Article embeddings generated with Sentence-Transformers (`all-MiniLM-L6-v2`,
-384-d) over each article's title + abstract (~65k articles). Artifacts in
+384-d) over each article's title + abstract (51,282 articles in the MIND-small
+training set). Artifacts in
 `models/`; metric in [`src/metrics.py`](src/metrics.py).
 
 - **Validation:** nearest-neighbour retrieval is coherent — a St. Louis
@@ -130,7 +130,7 @@ Article embeddings generated with Sentence-Transformers (`all-MiniLM-L6-v2`,
   than MIND's 18 categories — e.g. it separates *individual* sports (golf,
   tennis, MMA) from *team* sports/roster news, and splits the broad `news`
   category into Ukraine politics, crime, and disasters.
-- **Redundancy:** ~XX% of articles have a near-duplicate at cosine > 0.90,
+- **Redundancy:** ~5.9% of articles (3,017 of 51,282) have a near-duplicate at cosine > 0.90,
   including exact duplicates published under different `news_id`s. Threshold
   methods over-flag formulaic headline templates (e.g. race recaps differing
   only by venue), so duplicates are treated as a signal, not ground truth.
