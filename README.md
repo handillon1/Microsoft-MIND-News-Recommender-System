@@ -4,21 +4,32 @@ A personalized news recommender built on the Microsoft MIND dataset that
 maximizes engagement (CTR) while balancing diversity, freshness, and
 recommendation-fatigue constraints.
 
-## Tech stack
-Python, pandas, scikit-learn, Sentence-Transformers, PostgreSQL, Streamlit.
+## TL;DR
+
+- **Engagement is concentrated:** the top 1% of articles get **51.6% of all clicks**, so a recommender tuned only for clicks would keep narrowing what readers see.
+- **Content beats popularity:** matching articles to each reader's click history ranks **16% better** than recommending the most popular articles (nDCG@10 0.359 vs 0.310).
+- **NLP layer:** embedded **51,282 articles** with Sentence-Transformers to measure feed diversity and flag near-duplicate stories (5.9% of articles).
+- **Experiment and decision:** a simulated A/B test (~8k users) showed the diversity re-ranker raised diversity and freshness with no detectable engagement loss, but **guardrail metrics showed topic balance got worse**, so the recommendation is **not to ship it as specified** (details in [Experimentation](#experimentation)).
+
+**Tech stack:** Python, pandas, scikit-learn, Sentence-Transformers, PostgreSQL, Streamlit.
 
 ## Project structure
 - `data/` — raw + processed MIND data (gitignored)
-- `notebooks/` — EDA and prototyping
-- `src/` — recommenders, metrics, NLP modules
-- `sql/` — schema and queries
+- `notebooks/` — analysis, run in order `01` → `09`
+- `src/` — recommenders, metrics, evaluation, and re-ranking modules
+- `sql/` — database schema
 - `dashboards/` — Streamlit analytics app
 - `figures/` — charts used in this README
+- [`metrics.md`](metrics.md) — definitions of every engagement and guardrail metric
 
 ## Problem Statement
 
-    We want news readers to discover relevant, varied stories without being shown the same articles or topic
-    repeatedly. We aim to cultivate an audience with repeat engagement across the time frame. A recommendation system focusing solely on click through rate can ruin recommendations and create feeds focused only on suggesting the most popular articles, encouraging repetition and narrowing topics; A long term retention risk.To balance the trade off, we should quantify the trade off between the demand for an increase in immediate engagement and a diverse recommendation system by identifying the exchange rate between engagement and diversity and recommend where it stops being worth paying. A success will be consistent click through rate, lowered topic repetition and increased intra list diversity, verified with experiment and guardrails. Failures can be identified when recommendations focus solely on few popular articles, users get suggested only a narrow set of topics, and readers are exposed to similar content leads to higher fatigue/churn.
+We want news readers to discover relevant, varied stories without being shown the same articles or topics repeatedly, so that they keep coming back over time.
+
+A recommender that optimizes only for click-through rate tends to fill feeds with the most popular articles, which encourages repetition and narrows topics — a long-term retention risk. This project quantifies the trade-off between immediate engagement and feed diversity: it estimates the exchange rate between the two and recommends where more diversity stops being worth the cost.
+
+- **Success:** steady click-through rate, less topic repetition, and higher intra-list diversity, verified with an experiment and guardrail metrics.
+- **Failure:** recommendations concentrate on a few popular articles, readers see only a narrow set of topics, or repeated similar content drives fatigue and churn.
 
 ## Exploratory Data Analysis — Key Findings
 
@@ -136,7 +147,7 @@ training set). Artifacts in
   only by venue), so duplicates are treated as a signal, not ground truth.
 - **Diversity metric:** intra-list diversity = 1 − mean pairwise cosine
   similarity. Validated by construction:
-  redundant list (one cluster) **0.756** < popularity list **0.861** 
+  redundant list (one cluster) **0.756** < popularity list **0.861** <
   varied list (ten clusters) **0.955**. Values compress into a high band, as
   expected for text embeddings — differences are interpreted relatively.
 
@@ -233,3 +244,15 @@ objective and re-evaluate against the same guardrail panel.
   within-list topic concentration rather than repeated exposure over time.
 - Five metrics tested; diversity, freshness, and fatigue all survive a
   Bonferroni-corrected threshold.
+
+## How to run
+
+1. Download **MIND-small** from the [Microsoft News Dataset page](https://msnews.github.io/) and unzip it into `data/raw/` (e.g. `data/raw/MINDsmall_train/`).
+2. Create a PostgreSQL database named `mind`, run [`sql/schema.sql`](sql/schema.sql), and add a `.env` file in the project root with `PG_PASSWORD=your_postgres_password`.
+3. Install dependencies: `pip install -r requirements.txt` (Python 3.11+).
+4. Run the notebooks in order from the `notebooks/` folder. `01_understand_data` loads the data into Postgres; `06_embeddings` writes the article embeddings to `models/`, which later notebooks read.
+5. Optional dashboard: `streamlit run dashboards/app.py`.
+
+## Data
+
+[Microsoft News Dataset (MIND)](https://msnews.github.io/), Wu et al., ACL 2020. The data is not included in this repo; see the dataset page for its license terms.
